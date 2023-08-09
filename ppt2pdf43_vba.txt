@@ -53,6 +53,7 @@ Sub SaveSlidesAsPDF()
                 End If
                 ExportedShape.Left = 0 ' 0 촤측 여백을 10 포인트로 설정
                 ExportedShape.Width = SW
+
             End If
         Next OriginalSlide
     Next i
