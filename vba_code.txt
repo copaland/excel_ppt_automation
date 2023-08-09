@@ -1,0 +1,102 @@
+Option Explicit
+
+Sub CreateSlidesFromExcel()
+
+    Dim excelApp As Excel.Application
+    Dim excelWorkbook As Excel.Workbook
+    Dim excelWorksheet As Excel.Worksheet
+    Dim fileDialog As FileDialog
+    Dim filePath As String
+    Set fileDialog = Application.FileDialog(msoFileDialogFilePicker)
+
+    With fileDialog
+        .AllowMultiSelect = False
+        .Title = "참고할 엑셀을 선택해주세요"
+        .Filters.Clear
+        .Filters.Add "Excel Files", "*.xls; *.xlsx; *.xlsm"
+        If .Show = -1 Then
+            filePath = .SelectedItems(1)
+        Else
+            MsgBox "파일을 선택하지 않았습니다."
+            Exit Sub
+        End If
+    End With
+	
+    Set excelApp = New Excel.Application
+    Set excelWorkbook = excelApp.Workbooks.Open(filePath)
+    Set excelWorksheet = excelWorkbook.Sheets(1)
+    Dim variableNames As Collection
+    Dim variableName As Variant
+    Dim variableCols As Collection
+    Dim variableCol As Range
+    Dim lastRow As Integer
+    Dim row As Integer
+    Set variableNames = GetVariableNamesFromSlide(ActivePresentation.Slides(1))
+    If variableNames.Count = 0 Then
+        MsgBox "변수명을 찾을 수 없습니다."
+        Exit Sub
+    End If
+    Set variableCols = New Collection
+    For Each variableName In variableNames
+        Set variableCol = excelWorksheet.Rows(1).Find(variableName, LookIn:=xlValues, LookAt:=xlWhole)
+        If variableCol Is Nothing Then
+            MsgBox variableName & " 열을 찾을 수 없습니다."
+            Exit Sub
+        End If
+        variableCols.Add variableCol
+    Next variableName
+    lastRow = excelWorksheet.Cells(excelWorksheet.Rows.Count, variableCols(1).Column).End(xlUp).row
+    For row = 2 To lastRow
+        CreateSlideWithMultipleContent variableNames, variableCols, excelWorksheet, row
+    Next row
+    excelWorkbook.Close SaveChanges:=False
+    excelApp.Quit
+    Set excelWorksheet = Nothing
+    Set excelWorkbook = Nothing
+    Set excelApp = Nothing
+End Sub
+
+Function GetVariableNamesFromSlide(slide As slide) As Collection
+    Dim shape As shape
+    Dim variableName As String
+    Dim startPos As Integer
+    Dim endPos As Integer
+	
+    Set GetVariableNamesFromSlide = New Collection
+    For Each shape In slide.Shapes
+        If shape.HasTextFrame Then
+            startPos = InStr(shape.TextFrame.TextRange.Text, "{")
+            endPos = InStr(shape.TextFrame.TextRange.Text, "}")
+            While startPos > 0 And endPos > 0
+                variableName = Mid(shape.TextFrame.TextRange.Text, startPos + 1, endPos - startPos - 1)
+                GetVariableNamesFromSlide.Add variableName
+                startPos = InStr(endPos, shape.TextFrame.TextRange.Text, "{")
+                endPos = InStr(endPos, shape.TextFrame.TextRange.Text, "}")
+            Wend
+        End If
+    Next shape
+End Function
+
+Sub CreateSlideWithMultipleContent(variableNames As Collection, variableCols As Collection, excelWorksheet As Excel.Worksheet, row As Integer)
+    Dim baseSlide As slide
+    Dim newSlide As slide
+    Dim shape As shape
+    Dim i As Integer
+    Set baseSlide = ActivePresentation.Slides(1)
+    baseSlide.Copy
+    On Error Resume Next
+    ActivePresentation.Slides.Paste ActivePresentation.Slides.Count + 1
+    Set newSlide = ActivePresentation.Slides(ActivePresentation.Slides.Count)
+    On Error GoTo 0
+    If newSlide Is Nothing Then
+        MsgBox "슬라이드를 삽입하는 데 문제가 발생했습니다."
+        Exit Sub
+    End If
+    For Each shape In newSlide.Shapes
+        If shape.HasTextFrame Then
+            For i = 1 To variableNames.Count
+                shape.TextFrame.TextRange.Text = Replace(shape.TextFrame.TextRange.Text, "{" & variableNames(i) & "}", excelWorksheet.Cells(row, variableCols(i).Column).Value)
+            Next i
+        End If
+    Next shape
+End Sub
