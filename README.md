@@ -9,3 +9,6 @@ Microsoft Excel xx.x Object Library' 와 'Microsoft PowerPoint xx.x Object Libra
 * 삽입(Insert)-모듈(Module)-새 모듈 만들기  
 인공지능이 생성한 반복 작업 코드 새 모듈에 붙여넣기  
 
+
+## 엑셀 데이터를 PPT에 자동 삽입
+CREATEEXCELTOPPT
